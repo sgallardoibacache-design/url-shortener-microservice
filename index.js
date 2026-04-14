@@ -8,6 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use(express.static('public'));
 
 const urls = [];
 let idCounter = 1;
@@ -15,7 +16,7 @@ let idCounter = 1;
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
-    <html lang="es">
+    <html lang="en">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -39,7 +40,6 @@ app.get('/', (req, res) => {
 
 app.post('/api/shorturl', (req, res) => {
   const originalUrl = req.body.url;
-
   let parsedUrl;
 
   try {
@@ -48,10 +48,7 @@ app.post('/api/shorturl', (req, res) => {
     return res.json({ error: 'invalid url' });
   }
 
-  if (
-    parsedUrl.protocol !== 'http:' &&
-    parsedUrl.protocol !== 'https:'
-  ) {
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
     return res.json({ error: 'invalid url' });
   }
 
@@ -72,7 +69,6 @@ app.post('/api/shorturl', (req, res) => {
     };
 
     urls.push(newEntry);
-
     return res.json(newEntry);
   });
 });
@@ -82,8 +78,12 @@ app.get('/api/shorturl/:short_url', (req, res) => {
   const foundUrl = urls.find((item) => item.short_url === shortUrl);
 
   if (!foundUrl) {
-    return res.status(404).json({ error: 'invalid url' });
+    return res.json({ error: 'invalid url' });
   }
 
-  res.redirect(foundUrl.original_url);
+  return res.redirect(foundUrl.original_url);
+});
+
+const listener = app.listen(process.env.PORT || 3000, () => {
+  console.log('Your app is listening on port ' + listener.address().port);
 });
