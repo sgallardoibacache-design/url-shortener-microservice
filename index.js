@@ -79,16 +79,11 @@ app.post('/api/shorturl', (req, res) => {
 
 app.get('/api/shorturl/:short_url', (req, res) => {
   const shortUrl = Number(req.params.short_url);
-
   const foundUrl = urls.find((item) => item.short_url === shortUrl);
 
   if (!foundUrl) {
-    return res.json({ error: 'invalid url' });
+    return res.status(404).json({ error: 'invalid url' });
   }
 
-  return res.redirect(foundUrl.original_url);
-});
-
-const listener = app.listen(process.env.PORT || 3000, () => {
-  console.log('Your app is listening on port ' + listener.address().port);
+  res.redirect(foundUrl.original_url);
 });
