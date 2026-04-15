@@ -2,8 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const dns = require('dns');
 const { URL } = require('url');
-const fs = require('fs');
-const path = require('path');
 
 const app = express();
 
@@ -12,25 +10,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(express.static('public'));
 
-const DATA_FILE = path.join(__dirname, 'data.json');
-
-function loadData() {
-  try {
-    const raw = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return {
-      nextId: 1,
-      urls: {}
-    };
-  }
-}
-
-function saveData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
-let store = loadData();
+const urls = [];
+let idCounter = 1;
 
 app.get('/', (req, res) => {
   res.send(`
@@ -76,27 +57,30 @@ app.post('/api/shorturl', (req, res) => {
       return res.json({ error: 'invalid url' });
     }
 
-    const shortUrl = store.nextId;
-    store.urls[String(shortUrl)] = originalUrl;
-    store.nextId += 1;
-    saveData(store);
+    const existingUrl = urls.find((item) => item.original_url === originalUrl);
+    if (existingUrl) {
+      return res.json(existingUrl);
+    }
 
-    return res.json({
+    const newEntry = {
       original_url: originalUrl,
-      short_url: shortUrl
-    });
+      short_url: idCounter++
+    };
+
+    urls.push(newEntry);
+    return res.json(newEntry);
   });
 });
 
 app.get('/api/shorturl/:short_url', (req, res) => {
-  const shortUrl = req.params.short_url;
-  const originalUrl = store.urls[shortUrl];
+  const shortUrl = parseInt(req.params.short_url, 10);
+  const foundUrl = urls.find((item) => item.short_url === shortUrl);
 
-  if (!originalUrl) {
+  if (!foundUrl) {
     return res.json({ error: 'invalid url' });
   }
 
-  return res.redirect(originalUrl);
+  return res.redirect(foundUrl.original_url);
 });
 
 const PORT = process.env.PORT || 3000;
