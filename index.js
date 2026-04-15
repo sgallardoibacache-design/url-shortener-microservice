@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dns = require('dns');
 const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
@@ -10,8 +12,25 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(express.static('public'));
 
-const urls = [];
-let idCounter = 1;
+const DATA_FILE = path.join(__dirname, 'data.json');
+
+function loadData() {
+  try {
+    const raw = fs.readFileSync(DATA_FILE, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return {
+      nextId: 1,
+      urls: {}
+    };
+  }
+}
+
+function saveData(data) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+let store = loadData();
 
 app.get('/', (req, res) => {
   res.send(`
@@ -40,11 +59,11 @@ app.get('/', (req, res) => {
 
 app.post('/api/shorturl', (req, res) => {
   const originalUrl = req.body.url;
-  let parsedUrl;
 
+  let parsedUrl;
   try {
     parsedUrl = new URL(originalUrl);
-  } catch (error) {
+  } catch {
     return res.json({ error: 'invalid url' });
   }
 
@@ -57,35 +76,30 @@ app.post('/api/shorturl', (req, res) => {
       return res.json({ error: 'invalid url' });
     }
 
-    const existingUrl = urls.find((item) => item.original_url === originalUrl);
+    const shortUrl = store.nextId;
+    store.urls[String(shortUrl)] = originalUrl;
+    store.nextId += 1;
+    saveData(store);
 
-    if (existingUrl) {
-      return res.json(existingUrl);
-    }
-
-    const newEntry = {
+    return res.json({
       original_url: originalUrl,
-      short_url: idCounter++
-    };
-
-    urls.push(newEntry);
-    return res.json(newEntry);
+      short_url: shortUrl
+    });
   });
 });
 
 app.get('/api/shorturl/:short_url', (req, res) => {
-  const shortUrl = Number(req.params.short_url);
-  const foundUrl = urls.find((item) => item.short_url === shortUrl);
+  const shortUrl = req.params.short_url;
+  const originalUrl = store.urls[shortUrl];
 
-  if (!foundUrl) {
+  if (!originalUrl) {
     return res.json({ error: 'invalid url' });
   }
 
-  return res.redirect(foundUrl.original_url);
+  return res.redirect(originalUrl);
 });
 
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log(`Your app is listening on port ${PORT}`);
 });
