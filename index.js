@@ -10,8 +10,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(express.static('public'));
 
-const urls = [];
-let idCounter = 1;
+let shortUrlCounter = 1;
+const urlDatabase = {};
 
 app.get('/', (req, res) => {
   res.send(`
@@ -57,30 +57,24 @@ app.post('/api/shorturl', (req, res) => {
       return res.json({ error: 'invalid url' });
     }
 
-    const existingUrl = urls.find((item) => item.original_url === originalUrl);
-    if (existingUrl) {
-      return res.json(existingUrl);
-    }
+    const shortUrl = shortUrlCounter++;
+    urlDatabase[shortUrl] = originalUrl;
 
-    const newEntry = {
+    return res.json({
       original_url: originalUrl,
-      short_url: idCounter++
-    };
-
-    urls.push(newEntry);
-    return res.json(newEntry);
+      short_url: shortUrl
+    });
   });
 });
 
 app.get('/api/shorturl/:short_url', (req, res) => {
-  const shortUrl = parseInt(req.params.short_url, 10);
-  const foundUrl = urls.find((item) => item.short_url === shortUrl);
+  const originalUrl = urlDatabase[req.params.short_url];
 
-  if (!foundUrl) {
+  if (!originalUrl) {
     return res.json({ error: 'invalid url' });
   }
 
-  return res.redirect(foundUrl.original_url);
+  return res.redirect(originalUrl);
 });
 
 const PORT = process.env.PORT || 3000;
